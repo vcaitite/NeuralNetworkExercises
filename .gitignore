@@ -3,6 +3,10 @@
 
 #Para arquivos HTML:
 *.html
+#Para arquivos de enunciado:
+Enunciado.pdf
+#Para database:
+databases/
 
 ### R ###
 # History files
