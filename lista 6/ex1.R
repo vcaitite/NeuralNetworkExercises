@@ -1,0 +1,76 @@
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YELM.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+for (p in c(5,10,30,50,100,150,200,300)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:569,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:30 ]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:30 ]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    retlist<-trainELM(x_train, y_train, p, 1)
+    W<-retlist[[1]]
+    H<-retlist[[2]]
+    Z<-retlist[[3]]
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YELM(x_train, Z, W, 1), nrow = length_train, ncol = 1)
+    accuracy_train[execution]<-((sum(abs(y_hat_train + y_train)))/2)/length_train
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YELM(x_test, Z, W, 1), nrow = length_test, ncol = 1)
+    accuracy_test[execution]<-((sum(abs(y_hat_test + y_test)))/2)/length_test
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "nerônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "nerônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}

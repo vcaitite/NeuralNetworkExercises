@@ -1,0 +1,901 @@
+---
+title: "Redes Neurais Artificiais"
+author: "Vítor Gabriel Reis Caitité - 2016111849"
+date: "1/25/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+subtitle: Exercício 6 - ELMs com bases de dados reais
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Função que calcula a saída de uma rede ELM
+
+Abaixo está a função que calcula a saída de uma rede ELM.
+
+```{r lista5_yelm}
+YELM<-function(xin, Z, W, par){
+  n<-dim(xin)[2]
+  
+  # Adiciona ou não termo de polarização
+  if(par == 1) {
+    xin<-cbind(1, xin) 
+  }
+  H<-tanh(xin%*%Z)
+  y_hat<-sign(H %*% W)
+  return(y_hat)
+}
+
+```
+
+## Treinamento da rede ELM
+
+A função abaixo é uma implementação possível, em R, para o algoritmo de treinamento de uma rede ELM. Essa função é utilizada na resolução dos exercícios da lista. 
+
+```{r lista5_train}
+
+library("corpcor")
+
+trainELM <- function(xin, yin, p, par){
+  n <- dim(xin) [2] # Dimensão da entrada
+
+  #Adiciona ou não o termo de polarização
+  if(par == 1){
+    xin<-cbind(1,xin)
+    Z<-replicate(p, runif(n+1, -0.5, 0.5))
+  }
+  else{
+    Z<-replicate(p, runif(n, -0.5, 0.5))
+  }
+  H<-tanh(xin %*% Z)
+  
+  W<-pseudoinverse(H)%*%yin
+  #W<-(solve(t(H) %*% H) %*% t(H)) %*% yin
+  
+  return(list(W,H,Z))
+}
+
+```
+
+
+## Função que calcula a resposta de um perceptron simples
+
+Abaixo está a função que calcula a resposta de um perceptron simples e é utilizada nas questões da lista.
+
+```{r lista4_yp}
+#Função que calcula a resposta de um perceptron simples.
+yperceptron <- function(xvec, w, par){
+  # xvec: vetor de entrada
+  # w: vetor de pesos
+  # par: se adiciona ou não o vetor de 1s na entrada 
+  # yperceptron: resposta do perceptron
+  if ( par==1){
+    xvec<-cbind ( 1 , xvec )
+  } 
+  u <- xvec %*% w
+  y <- 1.0 * (u>=0)
+  return(as.matrix(y))
+}
+
+```
+
+
+## Treinamento do perceptron
+
+A função abaixo é uma implementação possível, em R, para o algoritmo de treinamento do Perceptron. Essa função é utilizada na resolução dos exercícios da lista. 
+
+```{r lista4_train}
+
+trainPerceptron <- function ( xin , yd , eta , tol , maxepocas , par )
+{
+  dimxin<-dim( xin )
+  N <-dimxin[ 1 ]
+  n<-dimxin[ 2 ]
+  if ( par==1){
+    wt<-as.matrix ( runif(n+1) - 0.5)
+    xin<-cbind ( 1 , xin )
+  } else {
+    wt<-as.matrix ( runif ( n ) - 0.5) 
+  }
+  nepocas<-0
+  eepoca<-tol + 1
+  
+  evec<-matrix ( nrow =1 , ncol=maxepocas )
+  while( ( nepocas < maxepocas ) && ( eepoca>tol ) )
+  {
+    ei2<-0
+    xseq<-sample(N)
+    for ( i in 1:N)
+    {
+      irand<-xseq [i]
+      yhati<-1.0 * ( ( xin[
+        irand , ] %*% wt ) >= 0 )
+      ei<-yd[irand]- yhati
+      dw<-as.vector(eta) * as.vector(ei) * xin[ irand  , ]
+      wt<-wt+dw
+      ei2<-ei2 + ei * ei
+    }
+    nepocas<-nepocas+1
+    evec[ nepocas ]<-ei2/N
+    
+    eepoca<-evec[nepocas]
+  }
+  retlist<-list ( wt, evec[ 1:nepocas ] )
+  return (retlist)
+}
+
+```
+
+## Enunciado Exercício 6
+
+
+O objetivo dos exercícios desta semana é utilizar as ELMs para resolver problemas multidimensionais, a partir de bases de dados reais. As bases de dados devem ser baixadas do repositório UCI Machine Learning Repository (https://archive.ics.uci.edu/ml/datasets.php).
+A primeira base de dados a ser estudada é a base Breast Cancer (diagnostic), disponível no link: 
+
+https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29
+
+Para esta base, os alunos deverão dividir de forma aleatória os dados entre treinamento e teste e comparar as acurácias de treinamento e teste para diferentes valores do hiperparâmetro que controla o número de neurônios. Os valores de acurácia devem ser apresentados na forma de media ± desvio_padrao para, pelo menos, cinco execuções diferentes.
+
+Algumas perguntas que devem ser respondidas são:
+
+• Com quantos neurônios (aproximadamente) a acurácia de teste aparenta ser máxima?
+
+• O que acontece com os valores de acurácia de treinamento e teste conforme aumentamos progressivamente o número de neurônios (por exemplo, para 5, 10, 30, 50, 100, 300 neurônios)?
+
+O mesmo deve ser feito para a base Statlog (Heart), disponível no link:
+
+https://archive.ics.uci.edu/ml/datasets/Statlog+%28Heart%29
+
+Além das Extreme Learning Machines, os alunos deverão, também, treinar, utilizando a rotina desenvolvida para as atividades anteriores, um perceptron, e avaliar seu desempenho na solução dos dois problemas, comparado às ELMs.
+
+Por questões de convergência, pode ser necessário escalonar os valores dos atributos para que fiquem restritos entre 0 e 1. Para tanto, uma possibilidade é utilizar a forma abaixo:
+
+z_i = [x_i − min(x)]/[max(x) − min(x)]
+
+
+## ELM com base de dados Breast Cancer (diagnostic)
+
+Ulizando a base de dados Breast Cancer (diagnostic) foi desenvolvida uma ELM para classificar um tumor em maligno ou benigno. Essa base de dados é composta de 32 atributos, sendo eles: ID, diagnóstico ("M"-maligno, ou "B"-benigno) e 30 características de entrada com valores reais. Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 5, 10, 30, 50, 100, 200 e 300 neurônios. Para cada número de neurônios foram realizados 20 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+```{r lista5_ex1_data}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YELM.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+for (p in c(5,10,30,50,100,200,300)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:569,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:30 ]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:30 ]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    retlist<-trainELM(x_train, y_train, p, 1)
+    W<-retlist[[1]]
+    H<-retlist[[2]]
+    Z<-retlist[[3]]
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YELM(x_train, Z, W, 1), nrow = length_train, ncol = 1)
+    accuracy_train[execution]<-((sum(abs(y_hat_train + y_train)))/2)/length_train
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YELM(x_test, Z, W, 1), nrow = length_test, ncol = 1)
+    accuracy_test[execution]<-((sum(abs(y_hat_test + y_test)))/2)/length_test
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+```
+
+
+#### ***Discussão:***
+
+Pôde-se perceber que a acurácia de treinamento também vai aumentando progressivamente a medida que aumenta-se o número de neurônios. Contudo, o mesmo não ocorre para a acurácia de teste. Uma explicação plausível para isso é que um modelo com um número muito elevado de neurônios pode se tornar super ajustado aos dados de treinamento e não funcionar da maneira esperada com dados de teste. Aparentemente, a acurácia média máxima de teste foi obtida para o número de 100 neurônios.  
+
+## Perceptron simples com base de dados Breast Cancer (diagnostic)
+
+Nessa etapa foi treinado um perceptron simples, utilizando a rotina de treinamento de perceptron mostrada no início desse documento e a base de dados da questão anterior, para também classificar um tumor em maligno ou benigno. Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, foram realizados 20 execuções diferentes de treinamento e teste, e os valores de acurácia (de treinamento e teste), foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+```{r lista5_ex1}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/trainPerceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/yperceptron.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = 0
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+# Realiza pelo 20 execuções diferentes
+accuracy_train <- rep(0, 20)
+accuracy_test <- rep(0, 20)
+for(execution in 1:20){
+  # Separando dados entre treino e teste aleatoriamente:
+  positions_train <- createDataPartition(1:569,p=.7)
+  length_train <- length(positions_train$Resample1)
+  length_test <- length(y_all) - length_train
+  x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+  y_train <- rep(0, length_train)
+  x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+  y_test <- rep(0, (length(y_all) - length_train))
+  index_train <- 1
+  index_test <- 1
+  for (count in 1:length(y_all)) {
+    if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+      x_train[index_train, ] <- x_all[count, 1:30 ]
+      y_train[index_train] <- y_all[count]
+      index_train = index_train + 1
+    } else {
+      x_test[index_test, ] <- x_all[count, 1:30 ]
+      y_test[index_test] <- y_all[count]
+      index_test = index_test + 1    
+    }
+  }
+    
+  # Treinando modelo:
+  retlist<-trainPerceptron(x_train, y_train, 0.1, 0.01, 1000, 1)
+  W<-retlist[[1]]
+    
+  # Calculando acurácia de treinamento
+  y_hat_train <- as.matrix(yperceptron(x_train, W, 1), nrow = length_train, ncol = 1)
+  accuracy_train[execution]<-1-((t(y_hat_train-y_train) %*% (y_hat_train-y_train))/length_train)
+  #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+  # Calculando acurácia de Teste:
+  y_hat_test <- as.matrix(yperceptron(x_test, W, 1), nrow = length_test, ncol = 1)
+  accuracy_test[execution]<-1-((t(y_hat_test-y_test) %*% (y_hat_test-y_test))/length_test)
+  #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+}
+# Média das acurácias
+mean_accuracy_train <- mean(accuracy_train) * 100
+mean_accuracy_test <- mean(accuracy_test) * 100
+  
+# Desvio Padrão das acurácias
+sd_accuracy_train <- sd(accuracy_train) * 100
+sd_accuracy_test <- sd(accuracy_test) * 100
+  
+print(paste("Acurácia de treinamento do modelo com perceptron simples", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+print(paste("Acurácia de teste do modelo com perceptron simples", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+
+```
+
+
+#### ***Discussão:***
+
+Pôde-se perceber que obteve-se uma acurácia de treinamento de cerca de 90%, assim como para a ELM com 100 neurônios. Contudo, obteve-se uma acurácia de teste também próxima dos 90%, o que é significativamente melhor do que a obtida para as ELMs.
+
+
+## ELM com base de dados Statlog (Heart)
+
+Ulizando a base de dados Statlog (Heart), foi desenvolvida uma ELM para indicar a presença ou ausência de problemas de coração, com base em uma série de caracteísticas. Essa base de dados é composta de 13 caracteristicas (features) e a variável de predição (que assume os valores: 1 - ausência ou 2 - presença de doença no coração). Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 5, 10, 30, 50, 100, 200 e 300 neurônios. Para cada número de neurônios foram realizados 20 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+
+```{r lista5_ex1_30}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YELM.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 2 ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 1){
+    y_all[count] = 1
+  }
+}
+
+for (p in c(5,10,30,50,100, 200, 300)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:270,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:13]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:13]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    retlist<-trainELM(x_train, y_train, p, 1)
+    W<-retlist[[1]]
+    H<-retlist[[2]]
+    Z<-retlist[[3]]
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YELM(x_train, Z, W, 1), nrow = length_train, ncol = 1)
+    accuracy_train[execution]<-((sum(abs(y_hat_train + y_train)))/2)/length_train
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YELM(x_test, Z, W, 1), nrow = length_test, ncol = 1)
+    accuracy_test[execution]<-((sum(abs(y_hat_test + y_test)))/2)/length_test
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+```
+
+
+#### ***Discussão:***
+
+Novamente pôde-se perceber que a acurácia de treinamento vai aumentando progressivamente a medida que aumenta-se o número de neurônios. Contudo, o mesmo não ocorre para a acurácia de teste. Como citado, uma explicação plausível para isso é que um modelo com um número muito elevado de neurônios pode se tornar super ajustado aos dados de treinamento e não funcionar da maneira esperada com dados de teste. Aparentemente, a acurácia média máxima de teste foi obtida para o número de 50 neurônios, um valor menor que o número de neurônios para acurácia máxima da base de dados anterior. Isso, pode ser explicado pela diferença de complexidade dos problemas, enquanto na classificação do tumor verificou-se um número de 30 features, nesse caso verificou-se apenas 13.     
+
+
+## Perceptron simples com base de dados Statlog (Heart)
+
+Nessa etapa foi treinado um perceptron simples, utilizando a rotina de treinamento de perceptron mostrada no início desse documento e a base de dados Statlog (Heart), para também indicar a presença ou ausência de problemas de coração. Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, foram realizados 20 execuções diferentes de treinamento e teste, e os valores de acurácia (de treinamento e teste), foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+```{r lista5_ex2_data}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/trainPerceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/yperceptron.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 1 ){
+    y_all[count] = 1
+  }
+  else if(class[count] == 2){
+    y_all[count] = 0
+  }
+}
+
+# Realiza pelo 20 execuções diferentes
+accuracy_train <- rep(0, 20)
+accuracy_test <- rep(0, 20)
+for(execution in 1:20){
+  # Separando dados entre treino e teste aleatoriamente:
+  positions_train <- createDataPartition(1:270,p=.7)
+  length_train <- length(positions_train$Resample1)
+  length_test <- length(y_all) - length_train
+  x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+  y_train <- rep(0, length_train)
+  x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+  y_test <- rep(0, (length(y_all) - length_train))
+  index_train <- 1
+  index_test <- 1
+  for (count in 1:length(y_all)) {
+    if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+      x_train[index_train, ] <- x_all[count, 1:13]
+      y_train[index_train] <- y_all[count]
+      index_train = index_train + 1
+    } else {
+      x_test[index_test, ] <- x_all[count, 1:13]
+      y_test[index_test] <- y_all[count]
+      index_test = index_test + 1    
+    }
+  }
+  
+  # Treinando modelo:
+  retlist<-trainPerceptron(x_train, y_train, 0.1, 0.01, 1000, 1)
+  W<-retlist[[1]]
+  
+  # Calculando acurácia de treinamento
+  y_hat_train <- as.matrix(yperceptron(x_train, W, 1), nrow = length_train, ncol = 1)
+  accuracy_train[execution]<-1-((t(y_hat_train-y_train) %*% (y_hat_train-y_train))/length_train)
+  #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+  
+  # Calculando acurácia de Teste:
+  y_hat_test <- as.matrix(yperceptron(x_test, W, 1), nrow = length_test, ncol = 1)
+  accuracy_test[execution]<-1-((t(y_hat_test-y_test) %*% (y_hat_test-y_test))/length_test)
+  #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+}
+# Média das acurácias
+mean_accuracy_train <- mean(accuracy_train) * 100
+mean_accuracy_test <- mean(accuracy_test) * 100
+
+# Desvio Padrão das acurácias
+sd_accuracy_train <- sd(accuracy_train) * 100
+sd_accuracy_test <- sd(accuracy_test) * 100
+
+print(paste("Acurácia de treinamento do modelo com perceptron simples", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+print(paste("Acurácia de teste do modelo com perceptron simples", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+
+
+```
+
+#### ***Discussão:***
+
+Pôde-se perceber que obteve-se uma acurácia de treinamento de cerca de 75%, assim como para a ELM com 100 neurônios. Contudo, obteve-se uma acurácia de teste média também próxima dos 75%, o que é melhor do que a obtida para as ELMs (que no melhor caso obteve uma acurácia média de 65%).
+
+
+## Testes com dados escalonados
+
+Como sugerido pelo enunciado, por questões de convergência, pode ser interessante escalonar os valores dos atributos para que fiquem restritos entre 0 e 1.
+Isso foi feito para todos os exercícios anteriores, utilizando a função abaixo desenvolvida pelo autor. Os resultados para cada um dos testes podem ser vistos nas subseções seguintes.
+
+
+```{r lista5_ex3_data}
+
+# Função que recebe uma matriz e suas dimensões e retorna uma matriz
+# de mesma dimensão porém com sua colunas escalonadas.
+staggeringMatrix <- function(matrix, rows, columns ){
+  staggeredMatrix <- matrix(rep(0, rows*columns), ncol = columns, nrow = rows)
+  # Escalonando dados:
+  for (j in 1:columns) {
+    for (i in 1:rows) {
+      staggeredMatrix[i,j] <- (matrix[i,j] - min(matrix[,j])) / (max(matrix[,j]) - min(matrix[,j]))
+    }
+  }
+  return(staggeredMatrix)
+}
+
+```
+
+
+
+#### ***ELM com base de dados Breast Cancer (diagnostic) - Dados escalonados***
+
+
+```{r lista5_ex3_5_s}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(5,10,30,50,100,200,300)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:569,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:30 ]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:30 ]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    retlist<-trainELM(x_train, y_train, p, 1)
+    W<-retlist[[1]]
+    H<-retlist[[2]]
+    Z<-retlist[[3]]
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YELM(x_train, Z, W, 1), nrow = length_train, ncol = 1)
+    accuracy_train[execution]<-((sum(abs(y_hat_train + y_train)))/2)/length_train
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YELM(x_test, Z, W, 1), nrow = length_test, ncol = 1)
+    accuracy_test[execution]<-((sum(abs(y_hat_test + y_test)))/2)/length_test
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+
+
+```
+
+
+
+#### ***Perceptron simples com base de dados Breast Cancer (diagnostic) - Dados escalonados***
+
+
+```{r lista5_ex1_s}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/trainPerceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/yperceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = 0
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+
+# Realiza pelo 20 execuções diferentes
+accuracy_train <- rep(0, 20)
+accuracy_test <- rep(0, 20)
+for(execution in 1:20){
+  # Separando dados entre treino e teste aleatoriamente:
+  positions_train <- createDataPartition(1:569,p=.7)
+  length_train <- length(positions_train$Resample1)
+  length_test <- length(y_all) - length_train
+  x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+  y_train <- rep(0, length_train)
+  x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+  y_test <- rep(0, (length(y_all) - length_train))
+  index_train <- 1
+  index_test <- 1
+  for (count in 1:length(y_all)) {
+    if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+      x_train[index_train, ] <- x_all[count, 1:30 ]
+      y_train[index_train] <- y_all[count]
+      index_train = index_train + 1
+    } else {
+      x_test[index_test, ] <- x_all[count, 1:30 ]
+      y_test[index_test] <- y_all[count]
+      index_test = index_test + 1    
+    }
+  }
+    
+  # Treinando modelo:
+  retlist<-trainPerceptron(x_train, y_train, 0.1, 0.01, 1000, 1)
+  W<-retlist[[1]]
+    
+  # Calculando acurácia de treinamento
+  y_hat_train <- as.matrix(yperceptron(x_train, W, 1), nrow = length_train, ncol = 1)
+  accuracy_train[execution]<-1-((t(y_hat_train-y_train) %*% (y_hat_train-y_train))/length_train)
+  #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+  # Calculando acurácia de Teste:
+  y_hat_test <- as.matrix(yperceptron(x_test, W, 1), nrow = length_test, ncol = 1)
+  accuracy_test[execution]<-1-((t(y_hat_test-y_test) %*% (y_hat_test-y_test))/length_test)
+  #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+}
+# Média das acurácias
+mean_accuracy_train <- mean(accuracy_train) * 100
+mean_accuracy_test <- mean(accuracy_test) * 100
+  
+# Desvio Padrão das acurácias
+sd_accuracy_train <- sd(accuracy_train) * 100
+sd_accuracy_test <- sd(accuracy_test) * 100
+  
+print(paste("Acurácia de treinamento do modelo com perceptron simples", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+print(paste("Acurácia de teste do modelo com perceptron simples", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+
+```
+
+
+
+#### ***ELM com base de dados Statlog (Heart) - Dados escalonados***
+
+
+
+```{r lista5_ex1_30_s}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YELM.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 2 ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 1){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(5,10,30,50,100,200,300)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:270,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:13]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:13]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    retlist<-trainELM(x_train, y_train, p, 1)
+    W<-retlist[[1]]
+    H<-retlist[[2]]
+    Z<-retlist[[3]]
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YELM(x_train, Z, W, 1), nrow = length_train, ncol = 1)
+    accuracy_train[execution]<-((sum(abs(y_hat_train + y_train)))/2)/length_train
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YELM(x_test, Z, W, 1), nrow = length_test, ncol = 1)
+    accuracy_test[execution]<-((sum(abs(y_hat_test + y_test)))/2)/length_test
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+```
+
+
+
+#### ***Perceptron simples com base de dados Statlog (Heart) - Dados escalonados***
+
+
+```{r lista5_ex2_daota}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/trainPerceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/listas/lista 4/yperceptron.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 6/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 1 ){
+    y_all[count] = 1
+  }
+  else if(class[count] == 2){
+    y_all[count] = 0
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+# Realiza pelo 20 execuções diferentes
+accuracy_train <- rep(0, 20)
+accuracy_test <- rep(0, 20)
+for(execution in 1:20){
+  # Separando dados entre treino e teste aleatoriamente:
+  positions_train <- createDataPartition(1:270,p=.7)
+  length_train <- length(positions_train$Resample1)
+  length_test <- length(y_all) - length_train
+  x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+  y_train <- rep(0, length_train)
+  x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+  y_test <- rep(0, (length(y_all) - length_train))
+  index_train <- 1
+  index_test <- 1
+  for (count in 1:length(y_all)) {
+    if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+      x_train[index_train, ] <- x_all[count, 1:13]
+      y_train[index_train] <- y_all[count]
+      index_train = index_train + 1
+    } else {
+      x_test[index_test, ] <- x_all[count, 1:13]
+      y_test[index_test] <- y_all[count]
+      index_test = index_test + 1    
+    }
+  }
+  
+  # Treinando modelo:
+  retlist<-trainPerceptron(x_train, y_train, 0.1, 0.01, 1000, 1)
+  W<-retlist[[1]]
+  
+  # Calculando acurácia de treinamento
+  y_hat_train <- as.matrix(yperceptron(x_train, W, 1), nrow = length_train, ncol = 1)
+  accuracy_train[execution]<-1-((t(y_hat_train-y_train) %*% (y_hat_train-y_train))/length_train)
+  #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+  
+  # Calculando acurácia de Teste:
+  y_hat_test <- as.matrix(yperceptron(x_test, W, 1), nrow = length_test, ncol = 1)
+  accuracy_test[execution]<-1-((t(y_hat_test-y_test) %*% (y_hat_test-y_test))/length_test)
+  #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+}
+# Média das acurácias
+mean_accuracy_train <- mean(accuracy_train) * 100
+mean_accuracy_test <- mean(accuracy_test) * 100
+
+# Desvio Padrão das acurácias
+sd_accuracy_train <- sd(accuracy_train) * 100
+sd_accuracy_test <- sd(accuracy_test) * 100
+
+print(paste("Acurácia de treinamento do modelo com perceptron simples", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+print(paste("Acurácia de teste do modelo com perceptron simples", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+
+
+```
+
+#### ***Discussão***
+
+Pôde-se perceber que escalonar os dados fez diferença no resultado da acurácia de todos os modelos testados. Novamente, constatou-se que em ambas as bases de dados o modelo com o perceptron simples se saiu melhor que as ELMs, obtendo maiores valores acurácia.

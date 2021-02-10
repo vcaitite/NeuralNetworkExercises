@@ -1,0 +1,169 @@
+---
+title: "Redes Neurais Artificiais"
+subtitle: "Lista 3"
+author: "Vítor Gabriel Reis Caitité - 2016111849"
+date: "21/12/2020"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Questão 1
+
+Um estudante de engenharia estava fazendo o estudo de um sistema e durante um intervalo de tempo ele observou na entrada (x) uma senoide diferente daquela encontrada na saída (y), o aluno concluiu que aquela senoide da entrada havia sido multiplicada por um termo e somada a outro de forma que y = a + b * x. O estudante então pediu a você para encontrar estes parâmetros utilizando os conceitos da Adaline que você aprendeu.
+Para isso ele te forneceu o tempo de amostragem Ex1 t , os pontos de entrada Ex1_x e a saída Ex1_y. Para achar os parâmetros você deverá usar 70% dos dados para treinamento e 30% para teste. Calcule o erro médio quadrático para as amostras de teste e plote o gráfico da saída, considerando os parâmetros encontrados, para todos os pontos da entrada. Quais são os parâmetros do modelo? Obs: Use as mesmas amostras que as Figuras a seguir usaram para treinamento e teste.
+
+#### ***Resolução:***
+
+```{r lista3_1}
+rm(list = ls())
+
+# Obtenção do tempo de amostragem:
+t<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/Ex1_t"))
+# Obtenção dos pontos de entrada:
+x<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/Ex1_x"))
+# Obtenção da saída:
+y<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/Ex1_y"))
+
+# Classificando dados em dados de treinamento (1) ou teste (0) 
+class<-c(1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1)
+xtrain<-as.matrix(1:14, ncol = 1)
+ytrain<-as.matrix(1:14, ncol = 1)
+xtest<-as.matrix(1:6, ncol = 1)
+ytest<-as.matrix(1:6, ncol = 1)
+index_train = 1
+index_test = 1
+for (index in 1:20) {
+  if((class[index] == 1)){
+    xtrain[index_train, 1]<-x[index, 1]
+    ytrain[index_train, 1]<-y[index, 1]
+    index_train<-index_train+1
+  } else {
+    xtest[index_test, 1]<-x[index, 1]
+    ytest[index_test, 1]<-y[index, 1]
+    index_test<-index_test+1
+  }
+}
+
+# Treinamento do modelo:
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/treinaadaline.R")
+retlist<-trainadaline(xtrain, ytrain, 0.1, 0.01, 100, 1)
+w<-retlist[[1]]
+erro<-retlist[[2]]
+
+# Plotando gráfico de saída
+yhat = w[2]*x+w[1]
+plot(t, yhat, type='b', xlab = 'x', ylab = 'y', xlim = c(0,6), ylim = c(-1,1), col = "red" )
+par(new=T)
+plot(t,x, type='b', xlab = 'x', ylab = 'y', xlim = c(0,6), ylim = c(-1,1), col = "blue")
+legend("topright", legend=c("Entrada", "Saída"),
+       lty=c(1,1), col=c(4,2), lwd=1:2, bty="n")
+ 
+
+#Calculando Erro Médio Quadrático
+yhat_test = w[2]*xtest+w[1]
+err=0
+for (index in 1:6) {
+  err=err+(yhat_test[index]-ytest[index])^2  
+}
+err=err/6
+
+print("O erro médio quadrático para as amostras de teste foi:")
+print(err)
+
+print("Seja a saída dada por ŷ = w1*x + w0. Os parâmetros w0 e w1 são respectivamente:")
+print(w)
+
+
+
+```
+
+## Questão 2 
+O mesmo estudante de engenharia ficou admirado com seus conhecimentos técnicos sobre
+Adaline e resolveu pedir mais um favor. Ele observou que o novo sistema que ele estava
+trabalhando era constituído de três sinais na entrada e que a saída era uma mistura
+destes sinais da entrada mais um ganho. Mas este estudante não sabia muito bem como
+era esta mistura de sinais, a única coisa que ele sabia era que: y = a+b*x1+c*x2+d*x3.
+O aluno amostrou então os sinais na entrada e na saída para o intervalo de [0.1π/ : 2π] e
+os armazenou nas variáveis t (tempos amostrais), x (entradas) e y (saída). Sendo que a
+primeira coluna de x é o sinal x 1 , a segunda x 2 e a terceira x 3 . Para achar os parâmetros
+você deverá usar 70% dos dados para treinamento e 30% para teste. Calcule o erro
+médio quadrático para as amostras de teste e plote o gráfico da saída, considerando os
+parâmetros encontrados, para todos os pontos da entrada. Quais são os parâmetros do
+modelo?
+Obs: Use as mesmas amostras que as Figuras a seguir usaram para treinamento e teste.
+
+***Resolução:***
+
+```{r ex2}
+rm(list = ls())
+
+# Obtenção do tempo de amostragem:
+t<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/t"))
+# Obtenção dos pontos de entrada:
+x_all<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/x"))
+x1<-as.matrix(x_all[,1])
+x2<-as.matrix(x_all[,2])
+x3<-as.matrix(x_all[,3])
+# Obtenção da saída:
+y<-as.matrix(read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 3/dados/y"))
+
+
+
+# Classificando dados em dados de treinamento (1) ou teste (0) 
+class<-c(1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1)
+xtrain<-matrix(nrow=14, ncol = 3)
+ytrain<-as.matrix(1:14, ncol = 1)
+xtest<-matrix(nrow=6, ncol = 3)
+ytest<-as.matrix(1:6, ncol = 1)
+index_train = 1
+index_test = 1
+for (index in 1:20) {
+  if((class[index] == 1)){
+    xtrain[index_train, 1]<-x1[index, 1]
+    xtrain[index_train, 2]<-x2[index, 1]
+    xtrain[index_train, 3]<-x3[index, 1]
+    ytrain[index_train, 1]<-y[index, 1]
+    index_train<-index_train+1
+  } else {
+    xtest[index_test, 1]<-x1[index, 1]
+    xtest[index_test, 2]<-x2[index, 1]
+    xtest[index_test, 3]<-x3[index, 1]
+    ytest[index_test, 1]<-y[index, 1]
+    index_test<-index_test+1
+  }
+}
+
+# Treinamento do modelo:
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/treinaadaline.R")
+retlist<-trainadaline(xtrain, ytrain, 0.1, 0.01, 100, 1)
+w<-retlist[[1]]
+erro<-retlist[[2]]
+
+# Plotando gráfico de saída
+yhat = w[4]*x3+w[3]*x2+w[2]*x1+w[1]
+plot(t, yhat, type='b', xlab = 'x', ylab = 'y', xlim = c(0,6), ylim = c(-2,10), col = "red", main="Gráfico da saída" )
+
+#Calculando Erro Médio Quadrático
+yhat_test = cbind(1, xtest) %*% w
+err=0
+for (index in 1:6) {
+  err=err+(yhat_test[index]-ytest[index])^2  
+}
+err=err/6
+
+print("O erro médio quadrático para as amostras de teste foi:")
+print(err)
+
+print("Seja a saída dada por ŷ = w3*x3 +w2*x2 + w1*x1 + w0. Os parâmetros w0, w1, w2 e w3 são respectivamente:")
+print(w)
+
+
+```
+
+
