@@ -3,6 +3,10 @@
 
 #Para arquivos HTML:
 *.html
+
+#Para arquivos LaTeX:
+*.tex
+
 #Para arquivos de enunciado:
 Enunciado.pdf
 #Para database:
