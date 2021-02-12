@@ -101,7 +101,18 @@ trainRBF <- function(xin, yin, p){
       covi <- var(xci)  
     }
     else{ 
-      covi <- cov(xci) 
+      row <- dim(xci)[1];
+      if(is.null(row)){
+        row <- 0
+      }
+      # Para garantir que não haverá erro (caso tenha apeanas uma linha)
+      if(row > 1){
+        covi <- cov(xci)  
+      }
+      else{
+        # cov de 2 linhas iguais que vai dar 0
+        covi <- cov(matrix(c(xci, xci), nrow = 2))
+      }
     }
     covlist [[i]] <- covi  
   }
@@ -126,7 +137,7 @@ trainRBF <- function(xin, yin, p){
 ```
 
 
-## Enunciado Exercício 5
+## Enunciado Exercício 7
 
 
 O objetivo dos exercícios desta semana é implementar e testar uma rede neural RBF, com seleção automática de centros e raios, usando a técnica de k-médias. Para os primeiros testes, de classificação, devem ser geradas as seguintes bases de dados, utilizando o pacote em R mlbench (pacotes equivalentes em python ou outra linguagem podem ser utilizados):
