@@ -1,0 +1,630 @@
+---
+title: "Redes Neurais Artificiais"
+author: "Vítor Gabriel Reis Caitité - 2016111849"
+date: "1/25/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+subtitle: Exercício 8 - RBF com bases de dados reais
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Função que calcula a saída de uma rede RBF
+
+Abaixo está a função que calcula a saída de uma rede RBF.
+
+```{r lista8_yrbf}
+
+# Função que calcula a saı́da de uma rede RBF.
+library("corpcor")
+
+YRBF <- function(xin, modRBF){
+  ####### Função radial Gaussiana ########
+  pdfnvar<-function(x,m,K,n){
+    if (n==1) {
+      r<-sqrt(as.numeric(K))
+      px<-(1/(sqrt(2*pi*r*r))) * exp(-0.5 *((x-m)/r)^2)
+    }
+    else {
+      px<-((1/(sqrt((2*pi)^n * (det(K))))) * exp (-0.5 * (t(x-m) %*% (solve(K)) %*% (x-m))))
+    }
+  }
+  ########################################
+  N <- dim(xin)[1] # número de amostras
+  n <- dim(xin)[2] # dimensão de entrada (deve ser maior que 1)
+  m <- as.matrix(modRBF[[1]])
+  covlist <- modRBF[[2]]
+  p <- length(covlist) # Número de funções radiais
+  W <- modRBF [[3]]
+  
+  xin <- as.matrix(xin) # garante que xin seja matriz
+  
+  H <- matrix(nrow = N, ncol = p)
+  # Calcula matriz H
+  for (j in 1:N) {
+    for (i in 1:p) {
+      mi <- m[i, ]
+      covi <- covlist[i]
+      covi <- matrix(unlist(covlist[i]), ncol = n, byrow = T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j, ], mi, covi, n)
+    }
+  }
+  
+  Haug <- cbind(1, H)
+  Yhat <- Haug %*% W
+  return(Yhat)
+}
+
+```
+
+
+## Treinamento da rede RBF com centros e raios selecionados a partir do K-means
+
+A função abaixo é uma implementação possível, em R, para o algoritmo de treinamento de uma rede RBF com centros e raios selecionados a partir do algoritmo K-means. 
+
+```{r lista8_train}
+# Função de treinamento de uma rede RBF.
+library("corpcor")
+
+trainRBF <- function(xin, yin, p){
+  ####### Função radial Gaussiana ########
+  pdfnvar<-function(x,m,K,n){
+    if (n==1) {
+      r<-sqrt(as.numeric(K))
+      px<-(1/(sqrt(2*pi*r*r)))*exp(-0.5 *((x-m)/r)^2)
+    }
+    else {
+      px<-((1/(sqrt((2*pi)^n * (det(K))))) * exp (-0.5 * (t(x-m) %*% (solve(K)) %*% (x-m)))) #eq 6.5
+    }
+  }
+  ########################################
+  N<-dim(xin)[1] # número de amostras
+  n<-dim(xin)[2] # dimensão de entrada (deve ser maior que 1)
+
+  xin <- as.matrix(xin) # garante que xin seja matriz
+  yin <- as.matrix(yin) # garante que yin seja matriz
+  
+  # Aplica o algoritmo kmeans para separar os clusters 
+  xclust<-kmeans(xin, p)
+  
+  # Armazena vetores de centros das funções:
+  m <- as.matrix (xclust$centers)
+  covlist <- list()
+  
+  # Estima matrizes de covariância para todos os centros:
+  for ( i in 1:p)
+  {
+    ici <- which(xclust$cluster == i )
+    xci <- xin [ici, ]
+    if(n==1){
+      covi <- var(xci)  
+    }
+    else{ 
+      row <- dim(xci)[1];
+      if(is.null(row)){
+        row <- 0
+      }
+      # Para garantir que não haverá erro (caso tenha apeanas uma linha)
+      if(row > 1){
+        covi <- cov(xci)  
+      }
+      else{
+        # cov de 2 linhas iguais que vai dar 0
+        covi <- cov(matrix(c(xci, xci), nrow = 2))
+      }
+    }
+    covlist [[i]] <- covi  
+  }
+  
+  H <- matrix(nrow = N, ncol = p)
+  # Calcula matriz H
+  for (j in 1:N) {
+    for (i in 1:p) {
+      mi <- m[i, ]
+      covi <- covlist[i]
+      covi <- matrix(unlist(covlist[i]), ncol = n, byrow = T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j, ] , mi, covi, n)
+    }
+  }
+  
+  Haug <-cbind(1, H)
+  W <- pseudoinverse(Haug) %*% yin
+  
+  return (list(m, covlist, W, H))
+}
+
+```
+
+
+
+## Treinamento da rede RBF com centros e raios atribuídos de forma aleatória aos neurônios
+
+A função abaixo é uma implementação possível, em R, para o algoritmo de treinamento de uma rede RBF com centros e raios atribuídos de forma aleatória aos neurônios. A estratégia utilizada para a construção dos centros foi colocá-los entre 2 pontos escolhidos aleatoriamente do conjunto de treinamento, com o raio da função igual à distância entre os pontos.
+
+```{r lista8_train_random}
+
+# Função de treinamento de uma rede RBF.
+library("corpcor")
+
+trainRandomRBF <- function(xin, yin, p){
+  ####### Função para cálculo de dist. euclidiana ########
+  euc.dist <- function(x1, x2){
+    return (sqrt(sum((x1 - x2) ^ 2)))
+  } 
+  
+  ####### Função radial Gaussiana ########
+  pdfnvar<-function(x,m,K,n){
+    if (n==1) {
+      r<-sqrt(as.numeric(K))
+      px<-(1/(sqrt(2*pi*r*r)))*exp(-0.5 *((x-m)/r)^2)
+    }
+    else {
+      px<-((1/(sqrt((2*pi)^n * (det(K))))) * exp (-0.5 * (t(x-m) %*% (solve(K)) %*% (x-m)))) #eq 6.5
+    }
+  }
+  ########################################
+  
+  N<-dim(xin)[1] # número de amostras
+  n<-dim(xin)[2] # dimensão de entrada (deve ser maior que 1)
+  
+  xin <- as.matrix(xin) # garante que xin seja matriz
+  yin <- as.matrix(yin) # garante que yin seja matriz
+  
+  center <- matrix(rep(0, (p*ncol(xin))), nrow = p)
+  radius <- rep(0, p)
+  for (index in 1:p) {
+    # Escolhendo 2 pontos aleatoriamente (e garantindo que eles são diferentes): 
+    point1 <- sample(1:N, 1)
+    point2 <- point1
+    while (point1 == point2) {
+      point2 <- sample(1:N, 1)  
+    }
+    point1 <- xin[point1,]
+    point2 <- xin[point2,]
+    # Centros e Raios:
+    center[index,] <- (point1+point2)/2
+    radius[index] <- euc.dist(point1, point2)
+  }
+  
+  # Armazena vetores de centros das funções:
+  m <- as.matrix (center)
+  
+  covlist <- list()
+  
+  # Estima matrizes de covariância para todos os centros:
+  for (i in 1:p)
+  {
+    ici<-rep(0, N)
+    for (index in 1:N) {
+      if(euc.dist(center[i,], xin[index,]) <= radius[i]){
+        ici[index]<-1
+      }
+    }
+    ici <- which(ici == 1 )
+    xci <- xin [ici, ]
+    if(n==1){
+      covi <- var(xci)  
+    }
+    else{ 
+      row <- dim(xci)[1];
+      if(is.null(row)){
+        row <- 0
+      }
+      # Para garantir que não haverá erro (caso tenha apeanas uma linha)
+      if(row > 1){
+        covi <- cov(xci)  
+      }
+      else{
+        # cov de 2 linhas iguais que vai dar 0
+        covi <- cov(matrix(c(xci, xci), nrow = 2))
+      }
+    }
+    covlist [[i]] <- covi  
+  }
+  
+  H <- matrix(nrow = N, ncol = p)
+  # Calcula matriz H
+  for (j in 1:N) {
+    for (i in 1:p) {
+      mi <- m[i, ]
+      covi <- covlist[i]
+      covi <- matrix(unlist(covlist[i]), ncol = n, byrow = T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j, ] , mi, covi, n)
+    }
+  }
+  
+  Haug <-cbind(1, H)
+  W <- pseudoinverse(Haug) %*% yin
+  
+  return (list(m, covlist, W, H))
+}
+
+```
+
+
+
+## Enunciado Exercício 8
+
+O objetivo do exercício desta semana é combinar os conceitos aprendidos na Unidade 2 e construir uma rede neural que soma elementos das redes RBF e das redes ELM.
+
+As bases de dados a serem estudadas são as mesmas do exercício 6:
+
+• Breast Cancer (diagnostic)
+
+• Statlog (Heart)
+
+Os mesmos cuidados para separação de conjunto de treinamento e teste, já mencionados no enunciado do exercício 6, devem ser tomados, bem como deve ser dada atenção ao escalonamento dos dados (entre [0; 1] ou [−1; 1]).
+
+Para o exercício desta semana, o aluno deve combinar os algoritmos de treinamento de redes ELM e RBF: construir uma rede RBF com centros e raios atribuídos de forma aleatória aos neurônios. Uma possibilidade, que não é a única nem a melhor, para a construção de centros é colocá-los entre 2 pontos escolhidos aleatoriamente do conjunto de treinamento, com o raio da função igual à distância entre os pontos.
+
+Além da RBF com centros e raios aleatórios, deve ser construída uma RBF com centros e raios selecionados a partir do k-médias. As acurácias obtidas por cada uma das redes nas duas bases devem ser apresentadas no formato media ± desvio e comparadas com os resultados obtidos no exercício 6 para ELMs.
+
+Deve ser comparado, também, o número de centros necessários para desempenho semelhante entre as redes RBF com centros aleatórios e com centros selecionados por agrupamento (k-médias).
+
+
+## RBF com centros selecionados pelo k-means - Base de dados Breast Cancer (diagnostic)
+
+Ulizando a base de dados Breast Cancer (diagnostic) foi desenvolvida uma rede neural RBF para classificar um tumor em maligno ou benigno. Essa base de dados é composta de 32 atributos, sendo eles: ID, diagnóstico ("M"-maligno, ou "B"-benigno) e 30 características de entrada com valores reais. Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 2, 5, 10, 30, 50 e 100 neurônios. Para cada número de neurônios foram realizados 10 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+```{r lista5_ex1_data}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(2,5,10,30,50,75,100)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 10)
+  accuracy_test <- rep(0, 10)
+  for(execution in 1:10){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:569,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:30 ]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:30 ]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    modRBF<-trainRBF(x_train, y_train, p)
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)
+    yt <- (1*(y_hat_train >= 0)-0.5)*2
+    accuracy_train[execution] <- 1 - ((t(yt - y_train) %*% (yt - y_train))/(4*length(y_train)))
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YRBF(x_test, modRBF), nrow = length_test, ncol = 1)
+    yt <- (1*(y_hat_test >= 0)-0.5)*2
+    accuracy_test[execution] <- 1 - ((t(yt - y_test) %*% (yt - y_test))/(4*length(y_test)))
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+
+```
+
+## RBF com centros selecionados pelo k-means - Base de dados Statlog (Heart)
+
+Ulizando a base de dados Statlog (Heart), foi desenvolvida uma rede RBF para indicar a presença ou ausência de problemas de coração, com base em uma série de caracteísticas. Essa base de dados é composta de 13 caracteristicas (features) e a variável de predição (que assume os valores: 1 - ausência ou 2 - presença de doença no coração). Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 2, 5, 10, 30, 50, 75 e 100 neurônios. Para cada número de neurônios foram realizados 10 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+
+```{r lista5_ex1_30}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 2 ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 1){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(2,5,10,30,50,75,100)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:270,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:13]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:13]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    modRBF<-trainRBF(x_train, y_train, p)
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)
+    yt <- (1*(y_hat_train >= 0)-0.5)*2
+    accuracy_train[execution] <- 1 - ((t(yt - y_train) %*% (yt - y_train))/(4*length(y_train)))
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YRBF(x_test, modRBF), nrow = length_test, ncol = 1)
+    yt <- (1*(y_hat_test >= 0)-0.5)*2
+    accuracy_test[execution] <- 1 - ((t(yt - y_test) %*% (yt - y_test))/(4*length(y_test)))
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+```
+
+
+## RBF com centros selecionados aleatoriamente - Base de dados Breast Cancer (diagnostic)
+
+Ulizando a base de dados Breast Cancer (diagnostic) foi desenvolvida uma rede neural RBF, com centros selecionados aleatoriamente, para classificar um tumor em maligno ou benigno. Essa base de dados é composta de 32 atributos, sendo eles: ID, diagnóstico ("M"-maligno, ou "B"-benigno) e 30 características de entrada com valores reais. Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 2, 5, 10, 30, 50 e 100 neurônios. Para cada número de neurônios foram realizados 10 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+```{r lista5_ex1_dat2a}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRandomCentersRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/cancer", "wdbc.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:569, 3:32])
+class <- as.matrix(data[1:569, 2])
+y_all <- rep(0,569)
+for (count in 1:length(class)) {
+  if (class[count] == 'M' ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 'B'){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(2,5,10,30,50,75,100)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 10)
+  accuracy_test <- rep(0, 10)
+  for(execution in 1:10){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:569,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:30 ]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:30 ]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    modRBF<-trainRandomRBF(x_train, y_train, p)
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)
+    yt <- (1*(y_hat_train >= 0)-0.5)*2
+    accuracy_train[execution] <- 1 - ((t(yt - y_train) %*% (yt - y_train))/(4*length(y_train)))
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YRBF(x_test, modRBF), nrow = length_test, ncol = 1)
+    yt <- (1*(y_hat_test >= 0)-0.5)*2
+    accuracy_test[execution] <- 1 - ((t(yt - y_test) %*% (yt - y_test))/(4*length(y_test)))
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+
+```
+
+
+## RBF com centros selecionados aleatoriamente - Base de dados Statlog (Heart)
+
+Ulizando a base de dados Statlog (Heart), foi desenvolvida uma rede RBF, com centros selecionados aleatoriamente, para indicar a presença ou ausência de problemas de coração, com base em uma série de caracteísticas. Essa base de dados é composta de 13 caracteristicas (features) e a variável de predição (que assume os valores: 1 - ausência ou 2 - presença de doença no coração). Foram utilizados 70% dos dados para treino e 30% para teste. Além disso, variou-se progressivamente o número de neurônios da seguinte forma, 2, 5, 10, 30, 50, 75 e 100 neurônios. Para cada número de neurônios foram realizados 10 execuções diferentes de treinamento e teste, e os valores de acurácia, para cada caso, foram apresentados na forma de média ± desvio_padrão. Os resultados e o script desenvolvido podem ser vistos abaixo.
+
+
+
+```{r lista5_ex1_320}
+
+rm(list=ls())
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRandomCentersRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+library(caret)
+
+# Carregando base de dados:
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/heart", "heart.csv")
+data <- read.csv(path)
+
+# Separando dados de entrada e saída:
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
+for (count in 1:length(class)) {
+  if (class[count] == 2 ){
+    y_all[count] = -1
+  }
+  else if(class[count] == 1){
+    y_all[count] = 1
+  }
+}
+
+# Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+
+for (p in c(2,5,10,30,50,75,100)){
+  # Realiza pelo 20 execuções diferentes
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
+    # Separando dados entre treino e teste aleatoriamente:
+    positions_train <- createDataPartition(1:270,p=.7)
+    length_train <- length(positions_train$Resample1)
+    length_test <- length(y_all) - length_train
+    x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
+    y_train <- rep(0, length_train)
+    x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
+    y_test <- rep(0, (length(y_all) - length_train))
+    index_train <- 1
+    index_test <- 1
+    for (count in 1:length(y_all)) {
+      if (index_train <= length_train && count == positions_train$Resample1[index_train]){
+        x_train[index_train, ] <- x_all[count, 1:13]
+        y_train[index_train] <- y_all[count]
+        index_train = index_train + 1
+      } else {
+        x_test[index_test, ] <- x_all[count, 1:13]
+        y_test[index_test] <- y_all[count]
+        index_test = index_test + 1    
+      }
+    }
+    
+    # Treinando modelo:
+    modRBF<-trainRandomRBF(x_train, y_train, p)
+    
+    # Calculando acurácia de treinamento
+    y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)
+    yt <- (1*(y_hat_train >= 0)-0.5)*2
+    accuracy_train[execution] <- 1 - ((t(yt - y_train) %*% (yt - y_train))/(4*length(y_train)))
+    #print(paste("Acurácia de treinamento para execução", execution, "com", p, "nerônios:", accuracy_train))
+    
+    # Calculando acurácia de Teste:
+    y_hat_test <- as.matrix(YRBF(x_test, modRBF), nrow = length_test, ncol = 1)
+    yt <- (1*(y_hat_test >= 0)-0.5)*2
+    accuracy_test[execution] <- 1 - ((t(yt - y_test) %*% (yt - y_test))/(4*length(y_test)))
+    #print(paste("Acurácia de teste para execução", execution, "com", p, "nerônios:", accuracy_test))
+  }
+  # Média das acurácias
+  mean_accuracy_train <- mean(accuracy_train) * 100
+  mean_accuracy_test <- mean(accuracy_test) * 100
+  
+  # Desvio Padrão das acurácias
+  sd_accuracy_train <- sd(accuracy_train) * 100
+  sd_accuracy_test <- sd(accuracy_test) * 100
+  
+  print(paste("Acurácia de treinamento do modelo com", p, "neurônios:", mean_accuracy_train, "%", "±", sd_accuracy_train, "%"))
+  print(paste("Acurácia de teste do modelo com", p, "neurônios:", mean_accuracy_test, "%", "±", sd_accuracy_test, "%"))
+}
+
+```
+

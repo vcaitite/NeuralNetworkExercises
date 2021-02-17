@@ -1,22 +1,22 @@
 rm(list=ls())
-source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRandomCentersRBF.R")
 source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
 source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
 library(caret)
 
 # Carregando base de dados:
-path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/cancer", "wdbc.csv")
+path <- file.path("~/Documents/UFMG/9/Redes Neurais/listas/lista 8/databases/heart", "heart.csv")
 data <- read.csv(path)
 
 # Separando dados de entrada e saída:
-x_all <- as.matrix(data[1:569, 3:32])
-class <- as.matrix(data[1:569, 2])
-y_all <- rep(0,569)
+x_all <- as.matrix(data[1:270, 1:13])
+class <- as.matrix(data[1:270, 14])
+y_all <- rep(0,270)
 for (count in 1:length(class)) {
-  if (class[count] == 'M' ){
+  if (class[count] == 2 ){
     y_all[count] = -1
   }
-  else if(class[count] == 'B'){
+  else if(class[count] == 1){
     y_all[count] = 1
   }
 }
@@ -26,33 +26,33 @@ x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
 
 for (p in c(2,5,10,30,50,75,100)){
   # Realiza pelo 20 execuções diferentes
-  accuracy_train <- rep(0, 10)
-  accuracy_test <- rep(0, 10)
-  for(execution in 1:10){
+  accuracy_train <- rep(0, 20)
+  accuracy_test <- rep(0, 20)
+  for(execution in 1:20){
     # Separando dados entre treino e teste aleatoriamente:
-    positions_train <- createDataPartition(1:569,p=.7)
+    positions_train <- createDataPartition(1:270,p=.7)
     length_train <- length(positions_train$Resample1)
     length_test <- length(y_all) - length_train
-    x_train <- matrix(rep(0, 30*length_train), ncol=30, nrow=length_train)
+    x_train <- matrix(rep(0, 13*length_train), ncol=13, nrow=length_train)
     y_train <- rep(0, length_train)
-    x_test <- matrix(rep(0, (30*length_test)), ncol=30, nrow=(length(y_all) - length_train))
+    x_test <- matrix(rep(0, (13*length_test)), ncol=13, nrow=(length(y_all) - length_train))
     y_test <- rep(0, (length(y_all) - length_train))
     index_train <- 1
     index_test <- 1
     for (count in 1:length(y_all)) {
       if (index_train <= length_train && count == positions_train$Resample1[index_train]){
-        x_train[index_train, ] <- x_all[count, 1:30 ]
+        x_train[index_train, ] <- x_all[count, 1:13]
         y_train[index_train] <- y_all[count]
         index_train = index_train + 1
       } else {
-        x_test[index_test, ] <- x_all[count, 1:30 ]
+        x_test[index_test, ] <- x_all[count, 1:13]
         y_test[index_test] <- y_all[count]
         index_test = index_test + 1    
       }
     }
     
     # Treinando modelo:
-    modRBF<-trainRBF(x_train, y_train, p)
+    modRBF<-trainRandomRBF(x_train, y_train, p)
     
     # Calculando acurácia de treinamento
     y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)

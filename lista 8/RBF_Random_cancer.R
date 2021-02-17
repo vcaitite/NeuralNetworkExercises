@@ -1,5 +1,5 @@
 rm(list=ls())
-source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRBF.R")
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/trainRandomCentersRBF.R")
 source("~/Documents/UFMG/9/Redes Neurais/exemplos/YRBF.R")
 source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
 library(caret)
@@ -52,7 +52,7 @@ for (p in c(2,5,10,30,50,75,100)){
     }
     
     # Treinando modelo:
-    modRBF<-trainRBF(x_train, y_train, p)
+    modRBF<-trainRandomRBF(x_train, y_train, p)
     
     # Calculando acurácia de treinamento
     y_hat_train <- as.matrix(YRBF(x_train, modRBF), nrow = length_train, ncol = 1)
