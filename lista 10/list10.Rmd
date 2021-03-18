@@ -1,0 +1,434 @@
+---
+title: "Redes Neurais Artificiais"
+author: "Vítor Gabriel Reis Caitité - 2016111849"
+date: "3/17/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+subtitle: Exercício 10 - MLP
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Enunciado Exercício 10
+
+O objetivo dos exercícios desta semana é utilizar redes MLP para resolver problemas multidimensionais, a partir de bases de dados reais. Podem ser empregados pacotes de treinamento de redes neurais, como RSNNS (mostrado em vídeo aula) ou Scikit-Learn (para aqueles que preferem Python).
+As bases de dados devem ser baixadas do repositório UCI Machine Learning Repository.
+
+As bases de dados devem ser baixadas do repositório UCI Machine Learning Repository:
+
+• https://archive.ics.uci.edu/ml/datasets.php
+
+A primeira base de dados a ser estudada é a base Boston Housing, disponível no link:
+
+• https://archive.ics.uci.edu/ml/machine-learning-databases/housing/
+
+Para esta base, o objetivo é prever o valor da variável M EDV . Os dados devem ser separados de forma aleatória entre treinamento e teste. Devem ser estudadas pelo menos 3 arquiteturas diferentes de rede neural (variando o número de neurônios e funções de ativação). Os valores
+de erro devem ser apresentados na forma de media ± desvio_padrao para, pelo menos, cinco execuções diferentes.
+
+Uma breve discussão sobre o desempenho dos modelos deve ser apresentada.
+
+O mesmo deve ser feito para o problema de classificação na base Statlog (Heart), disponível no link:
+
+• https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/heart/
+
+
+## Solução - Base de dados Boston Housing:
+
+Para resolver esse exercício, utilizou-se o pacote de treinamento de redes neurais RSNNS, em R. Diversas arquiteturas de rede foram testadas e os respectivos códigos, bem como os resultados, são mostrados abaixo.    
+
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_Logistic
+
+
+```{r lista5_ex1_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/housing.data",
+           sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(3,9,15)) {
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+          initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+          learnFuncParams = c(0.01, 0.05), updateFunc = "Topological_Order",
+          updateFuncParams = 0.0, hiddenActFunc = "Act_Logistic",
+          shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+          targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    mean_error <- mean(abs(yhat - y_test))
+    sd <- sd(yhat - y_test)
+    mse <- sum((yhat - y_test)^2)/length(y_test)
+    print(paste("Para p = ", p, ", o erro médio para a execução ", exec, "foi: ", round(mean_error, 2), " +/- ", round(sd, 2)))
+    print(paste("Para p = ", p, ", o erro quadrático médio para a execução ", exec, ": MSE = ", round(mse, 2)))
+    print("__________________________________________________________________________________")
+  }
+}
+
+
+```
+
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_TanH
+
+Agora, trocou-se a função de ativação dos neurônios da camada escondida, optando-se pela função Act_TanH.
+
+*OBS: Para ver todas as funções de ativação disponíveis no pacote RSNNS, basta utilizar o comando: RSNNS::getSnnsRFunctionTable().*
+
+```{r lista5_ex3_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/housing.data",
+           sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(3,9,15)) {
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+          initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+          learnFuncParams = c(0.01, 0.05), updateFunc = "Topological_Order",
+          updateFuncParams = 0.0, hiddenActFunc = "Act_TanH",
+          shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+          targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    mean_error <- mean(abs(yhat - y_test))
+    sd <- sd(yhat - y_test)
+    mse <- sum((yhat - y_test)^2)/length(y_test)
+    print(paste("Para p = ", p, ", o erro médio para a execução ", exec, "foi: ", round(mean_error, 2), " +/- ", round(sd, 2)))
+    print(paste("Para p = ", p, ", o erro quadrático médio para a execução ", exec, ": MSE = ", round(mse, 2)))
+    print("__________________________________________________________________________________")
+  }
+}
+
+
+```
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_Signum
+
+```{r lista5_ex2_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/housing.data",
+           sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(6,9,12)) {
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+          initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+          learnFuncParams = c(0.01, 0.05), updateFunc = "Topological_Order",
+          updateFuncParams = 0.0, hiddenActFunc = "Act_Signum",
+          shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+          targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    mean_error <- mean(abs(yhat - y_test))
+    sd <- sd(yhat - y_test)
+    mse <- sum((yhat - y_test)^2)/length(y_test)
+    print(paste("Para p = ", p, ", o erro médio para a execução ", exec, "foi: ", round(mean_error, 2), " +/- ", round(sd, 2)))
+    print(paste("Para p = ", p, ", o erro quadrático médio para a execução ", exec, ": MSE = ", round(mse, 2)))
+    print("__________________________________________________________________________________")
+  }
+}
+
+
+```
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+
+
+## Solução - Base de dados Statlog (Heart):
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_Logistic
+
+
+```{r lista5_ex4_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/heart.dat",
+                   sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(6,9,12)) {
+  error <- rep(0, 5) 
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    y_train <- ifelse(y_train == 2, -1, 1)
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    y_test <- ifelse(y_test == 2, -1, 1)
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+                 initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+                 learnFuncParams = c(0.01, 0.05), updateFunc = "Topological_Order",
+                 updateFuncParams = 0.0, hiddenActFunc = "Act_Logistic",
+                 shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+                 targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    accuracy<-((sum(abs(y_test + yhat)))/2)/length(y_test)
+    error[exec] <- 1 - accuracy
+    print(paste("Para p = ", p, ", o erro para a execução ", exec, "foi: ", round(error[exec], 2)))
+    print(paste("Para p = ", p, ", a acurácia para a execução ", exec, "foi: ", round(accuracy, 2)))
+    print("__________________________________________________________________________________")
+  }
+  print(paste(">>> Para p = ", p, ", a média do erro foi: ", round(mean(error), 2), "+/-", round(sd(error), 2)))
+  print("__________________________________________________________________________________")
+}
+
+
+```
+
+
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_TanH
+
+
+```{r lista5_ex5_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/heart.dat",
+                   sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(3,9,15)) {
+  error <- rep(0, 5) 
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    y_train <- ifelse(y_train == 2, -1, 1)
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    y_test <- ifelse(y_test == 2, -1, 1)
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+                 initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+                 learnFuncParams = c(0.01, 0.1), updateFunc = "Topological_Order",
+                 updateFuncParams = 0.0, hiddenActFunc = "Act_TanH",
+                 shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+                 targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    accuracy<-((sum(abs(y_test + yhat)))/2)/length(y_test)
+    error[exec] <- 1 - accuracy
+    print(paste("Para p = ", p, ", o erro para a execução ", exec, "foi: ", round(error[exec], 2)))
+    print(paste("Para p = ", p, ", a acurácia para a execução ", exec, "foi: ", round(accuracy, 2)))
+    print("__________________________________________________________________________________")
+  }
+  print(paste(">>> Para p = ", p, ", a média do erro foi: ", round(mean(error), 2), "+/-", round(sd(error), 2)))
+  print("__________________________________________________________________________________")
+  
+}
+
+
+```
+
+
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+
+####  MLP com 3, 9 e 15 neurônios na camada escondida e função de ativação Act_Signum
+
+
+```{r lista5_ex6_data}
+
+rm(list=ls())
+library(caret)
+library(RSNNS)
+source("~/Documents/UFMG/9/Redes Neurais/exemplos/escalonamento_matrix.R")
+
+# Carregando base de dados:
+data <- read.table("~/Documents/UFMG/9/Redes Neurais/listas/lista 10/databases/heart.dat",
+                   sep = "", dec = ".", header = FALSE)
+
+executions <- 5
+for (p in c(3,9,15)) {
+  error <- rep(0, 5) 
+  executions <- 5
+  for(exec in 1:executions){
+    # Separando dados de entrada e saída e treino e teste aleatoriamente:
+    partition <- createDataPartition(1:dim(data)[1],p=.7)
+    train <- as.matrix(data[partition$Resample1,])
+    test <- as.matrix(data[- partition$Resample1,])
+    x_train <- as.matrix(train[, 1:(ncol(train)-1)])
+    y_train <- as.matrix(train[, ncol(train)])
+    y_train <- ifelse(y_train == 2, -1, 1)
+    x_test <- as.matrix(test[, 1:(ncol(train)-1)])
+    y_test <- as.matrix(test[, ncol(train)])
+    y_test <- ifelse(y_test == 2, -1, 1)
+    
+    # Escalonando os valores dos atributos para que fiquem restritos entre 0 e 1
+    x_all <- rbind(x_train, x_test)
+    x_all <- staggeringMatrix(x_all, nrow(x_all), ncol(x_all))
+    x_train <- x_all[1:nrow(x_train), ]
+    x_test <- x_all[(nrow(x_train)+1):(nrow(x_train)+nrow(x_test)), ]
+    
+    # Criando modelo:
+    model <- mlp(x_train, y_train, size = p, maxit = 1000, initFunc = "Randomize_Weights",
+                 initFuncParams = c(-0.3, 0.3), learnFunc = "Std_Backpropagation",
+                 learnFuncParams = c(0.01, 0.1), updateFunc = "Topological_Order",
+                 updateFuncParams = 0.0, hiddenActFunc = "Act_Signum",
+                 shufflePatterns = TRUE, linOut = TRUE, inputsTest = NULL,
+                 targetsTest = NULL)
+    
+    # Testando:
+    yhat <- predict(model, as.matrix(x_test))
+    accuracy<-((sum(abs(y_test + yhat)))/2)/length(y_test)
+    error[exec] <- 1 - accuracy
+    print(paste("Para p = ", p, ", o erro para a execução ", exec, "foi: ", round(error[exec], 2)))
+    print(paste("Para p = ", p, ", a acurácia para a execução ", exec, "foi: ", round(accuracy, 2)))
+    print("__________________________________________________________________________________")
+  }
+  print(paste(">>> Para p = ", p, ", a média do erro foi: ", round(mean(error), 2), "+/-", round(sd(error), 2)))
+  print("__________________________________________________________________________________")
+}
+
+
+```
+
+
+
+## Discussão:
+
+Com essa lista pôde-se perceber que  RSNNS  é  uma  ferramenta  eficiente  para  auxiliar  a  criação,  treinamento  e manutenção  de  redes  neurais.  Possui  também  facilidades  para  manipulação  de  arquivos de  dados,  de  resultados,  etc.  O  simulador  funciona  muito  bem  neste  contexto.  A criação e edição de redes no simulador é muito simples e rápida, possibilitandotrabalhar  com  um  grande  número  de  arquiteturas  distintas.
+
+O  SNNS  possui  um  grande  número  de  algoritmos  de  aprendizagem.  Entre  esses algoritmos, estão presentes diversas variações de Backpropagation. Durante essa atividade optou-se por utilizar a versão padrão do Backpropagation, "Std_Backpropagation".
+
+Nos testes realizados, foram testadas 3 funções de ativação diferentes para os neurônio da camada escondida: Act_Logistic, Act_TanH e Act_Signum. Observou-se que no geral, as redes que utilizaram as 2 primeiras funções de ativação tiveram desempenhos  semelhantes enquanto a rede que utilizou Act_Signum teve um desempenho pior. Essa discrepância ficou mais clara considerando a primeira base de dados. Com isso, pôde-se observar a importância em se escolher bem a função de ativação a ser utilizada dependendo do tipo de problema que se deseja resolver.
+
+Com relação ao número de neurônios, notou-se que para os três valores de "p" testados o desempenho da rede foi parecido, com resultados suavemente melhores para p=9 e p=15, se comparados com p=3. Contudo, ao tentar extrapolar o valor de p para valores maiores observou-se um desempenho inferior. Com isso foi possível observar a importância de se buscar um número de neurônios grande o suficiente para não ocorrer *underfitting*, mas que também não seja excessivo para não causar um *overfitting*.
+
+
